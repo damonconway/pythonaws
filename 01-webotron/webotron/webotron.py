@@ -22,8 +22,10 @@ BUCKET_MANAGER = None
 
 
 @click.group()
-@click.option('--profile', default=None,
-    help = "Use a given AWS profile.")
+@click.option(
+    '--profile',
+    default=None,
+    help="Use a given AWS profile.")
 def cli(profile):
     """Webotron deploys websites to AWS."""
     global SESSION, BUCKET_MANAGER
@@ -66,6 +68,7 @@ def setup_bucket(bucket):
 def sync(pathname, bucket):
     """Sync contents of PATHNAME to BUCKET."""
     BUCKET_MANAGER.sync(pathname, bucket)
+    print(BUCKET_MANAGER.get_bucket_url(BUCKET_MANAGER.s3.Bucket(bucket)))
 
 
 if __name__ == '__main__':
