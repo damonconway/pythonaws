@@ -7,6 +7,7 @@ from pathlib import Path
 from hashlib import md5
 from functools import reduce
 
+import boto3
 from botocore.exceptions import ClientError
 
 import util
@@ -118,7 +119,7 @@ class BucketManager:
         return hash
 
 
-    def generate_etag(self, path):
+    def gen_etag(self, path):
         """Generate ETag for path."""
         hashes = []
 
@@ -139,8 +140,7 @@ class BucketManager:
             return '"{}-{}"'.format(hash.hexdigest(), len(hashes))
 
 
-    @staticmethod
-    def upload_file(bucket, path, key):
+    def upload_file(self,bucket, path, key):
         """Upload path to bucket at key."""
         content_type = mimetypes.guess_type(key)[0] or 'text/plain'
 
