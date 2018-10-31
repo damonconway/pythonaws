@@ -16,9 +16,12 @@ import boto3
 import click
 
 from bucket import BucketManager
+from domain import DomainManager
+import util
 
 SESSION = None
 BUCKET_MANAGER = None
+DOMAIN_MANAGER = None
 
 
 @click.group()
@@ -28,7 +31,7 @@ BUCKET_MANAGER = None
     help="Use a given AWS profile.")
 def cli(profile):
     """Webotron deploys websites to AWS."""
-    global SESSION, BUCKET_MANAGER
+    global SESSION, BUCKET_MANAGER, DOMAIN_MANAGER
 
     session_cfg = {}
     if profile:
@@ -36,6 +39,7 @@ def cli(profile):
 
     SESSION = boto3.Session(**session_cfg)
     BUCKET_MANAGER = BucketManager(SESSION)
+    DOMAIN_MANAGER = DomainManager(SESSION)
 
 
 @cli.command('list-buckets')
@@ -69,6 +73,20 @@ def sync(pathname, bucket):
     """Sync contents of PATHNAME to BUCKET."""
     BUCKET_MANAGER.sync(pathname, bucket)
     print(BUCKET_MANAGER.get_bucket_url(BUCKET_MANAGER.s3.Bucket(bucket)))
+
+
+@cli.command('setup-domain')
+@click.argument('domain')
+def setup_domain(domain, bucket):
+    """Configure DOMAIN to point to BUCKET."""
+    bucket = BUCKET_MANAGER.get_bucket(domain)
+    zone = DOMAIN_MANAGER.find_hosted_zone(domain) \
+        or DOMAIN_MANAGER.create_hosted_zone(domain)
+
+    endpoint = util.get_endpoint(BUCKET_MANAGER.get_region_name(bucket))
+    record = DOMAIN_MANAGER.create_s3_domain_record(zone, domain, endpoint)
+    print("Domain configure: http://{}".format(domain))
+    print(record)
 
 
 if __name__ == '__main__':

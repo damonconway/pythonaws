@@ -24,9 +24,13 @@ class BucketManager:
         self.s3 = self.session.resource('s3')
         self.manifest = {}
         self.transfer_config = boto3.s3.transfer.TransferConfig(
-            multipart_chunksize = self.CHUNK_SIZE,
-            multipart_threshold = self.CHUNK_SIZE
-            )
+            multipart_chunksize=self.CHUNK_SIZE,
+            multipart_threshold=self.CHUNK_SIZE
+        )
+
+    def get_bucket(self, bucket_name):
+        """Get a bucket by name."""
+        return self.s3.Bucket(bucket_name)
 
     def get_region_name(self, bucket):
         """Get the bucket's region name."""
@@ -102,14 +106,13 @@ class BucketManager:
             }
         })
 
-    def load_manifest(self,bucket):
+    def load_manifest(self, bucket):
         """Load manifest for caching purposes."""
         client = self.s3.meta.client
         paginator = client.get_paginator('list_objects_v2')
         for page in paginator.paginate(Bucket=bucket.name):
-            for obj in page.get('Contents',[]):
+            for obj in page.get('Contents', []):
                 self.manifest[obj['Key']] = obj['ETag']
-
 
     @staticmethod
     def hash_data(data):
@@ -117,7 +120,6 @@ class BucketManager:
         hash = md5()
         hash.update(data)
         return hash
-
 
     def gen_etag(self, path):
         """Generate ETag for path."""
@@ -139,8 +141,7 @@ class BucketManager:
             hash = self.hash_data(reduce(lambda x, y: x + y, (h.digest() for h in hashes)))
             return '"{}-{}"'.format(hash.hexdigest(), len(hashes))
 
-
-    def upload_file(self,bucket, path, key):
+    def upload_file(self, bucket, path, key):
         """Upload path to bucket at key."""
         content_type = mimetypes.guess_type(key)[0] or 'text/plain'
 
@@ -155,7 +156,7 @@ class BucketManager:
                 'ContentType': content_type
             },
             Config=self.transfer_config
-            )
+        )
 
     def sync(self, pathname, bucket_name):
         """Sync contents of path to bucket."""
