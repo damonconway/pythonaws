@@ -17,11 +17,15 @@ import click
 
 from bucket import BucketManager
 from domain import DomainManager
+from certificate import CertificateManager
+from cdn import DistributionManager
 import util
 
 SESSION = None
 BUCKET_MANAGER = None
 DOMAIN_MANAGER = None
+CERT_MANAGER = None
+DIST_MANAGER = None
 
 
 @click.group()
@@ -31,7 +35,7 @@ DOMAIN_MANAGER = None
     help="Use a given AWS profile.")
 def cli(profile):
     """Webotron deploys websites to AWS."""
-    global SESSION, BUCKET_MANAGER, DOMAIN_MANAGER
+    global SESSION, BUCKET_MANAGER, DOMAIN_MANAGER, CERT_MANAGER, DIST_MANAGER 
 
     session_cfg = {}
     if profile:
@@ -40,6 +44,8 @@ def cli(profile):
     SESSION = boto3.Session(**session_cfg)
     BUCKET_MANAGER = BucketManager(SESSION)
     DOMAIN_MANAGER = DomainManager(SESSION)
+    CERT_MANAGER = CertificateManager(SESSION)
+    DIST_MANAGER = DistributionManager(SESSION)
 
 
 @cli.command('list-buckets')
@@ -85,8 +91,38 @@ def setup_domain(domain, bucket):
 
     endpoint = util.get_endpoint(BUCKET_MANAGER.get_region_name(bucket))
     record = DOMAIN_MANAGER.create_s3_domain_record(zone, domain, endpoint)
-    print("Domain configure: http://{}".format(domain))
-    print(record)
+    print("Domain configured: http://{}".format(domain))
+
+
+@cli.command('find-cert')
+@click.argument('domain')
+def find_cert(domain):
+    print(CERT_MANAGER.find_matching_cert(domain))
+
+
+@cli.command('setup-cdn')
+@click.argument('domain')
+@click.argument('bucket')
+def setup_cdn(domain, bucket):
+    dist = DIST_MANAGER.find_matching_dist(domain)
+
+    if not dist:
+        cert = CERT_MANAGER.find_matching_cert(domain)
+        if not cert:
+            print("Error: No matching certificate found.")
+            return
+
+        dist = DIST_MANAGER.create_dist(domain, cert)
+        print("Waiting for deployment ...")
+        DIST_MANAGER.await_deploy(dist)
+
+    zone = DOMAIN_MANAGER.find_hosted_zone(domain) \
+        or DOMAIN_MANAGER.create_hosted_zone(domain)
+
+    record = DOMAIN_MANAGER.create_cf_domain_record(zone, domain, endpoint)
+    print("Domain configured: https://{}".format(domain))
+
+    return
 
 
 if __name__ == '__main__':
