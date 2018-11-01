@@ -1,3 +1,5 @@
+*.pem
+
 Pipfile.lock
 
 # Byte-compiled / optimized / DLL files
